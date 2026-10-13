@@ -430,11 +430,13 @@ function attributionMarkerRecords(body: string): AttributionMarkerRecord[] {
       if (!marker) return null;
       const leadingWhitespace =
         record.raw.length - record.raw.trimStart().length;
+      // Group 1 is the eliza marker version. Group 2 is the slop v1 token.
+      const version = (marker[1]?.toLowerCase() ?? "v1") as "v1" | "v2";
       return {
         end: record.start + leadingWhitespace + raw.length,
         payload: marker[3].trim(),
         start: record.start + leadingWhitespace,
-        version: marker[2] ? "v2" : (marker[1].toLowerCase() as "v1" | "v2"),
+        version,
       };
     })
     .filter((record): record is AttributionMarkerRecord => record !== null);

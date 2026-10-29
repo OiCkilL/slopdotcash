@@ -151,6 +151,7 @@ function vault(
   free: string,
   observedAt = afterCutoff.toISOString(),
   decimals = 6,
+  asset?: string,
 ) {
   const escrow = project.manifest.escrow;
   const selected = escrow?.deployments[0];
@@ -164,7 +165,7 @@ function vault(
       selected.network,
       escrow.chain,
       selected.vault,
-      selected.asset,
+      asset ?? selected.asset,
       decimals,
       BigInt(free) > 5000n ? free : "5000",
       free,
@@ -919,6 +920,32 @@ describe("monthly coordinator", () => {
     expect(
       await service.commitment(project.id, "2026-11", actor, request),
     ).toMatchObject({ award: { githubUserId: A, gross: "600", fee: "12" } });
+  });
+
+  test("a Solana month refuses a vault reading of a mint that differs only in letter case", async () => {
+    // Base58 is case-sensitive: a changed letter names another mint.
+    await setupFixture(solanaDeployment);
+    await coordinate(afterCutoff);
+    const otherMint = solanaDeployment.asset.replace("z", "Z");
+    expect(otherMint).not.toBe(solanaDeployment.asset);
+    vault("1000", afterCutoff.toISOString(), 6, otherMint);
+    expect((await coordinate(afterCutoff)).waiting).toEqual([
+      { key: `${project.id}/2026-11`, reason: "stale-funding" },
+    ]);
+    expect(count("monthly_payment_obligations")).toBe(0);
+  });
+
+  test("an EVM month accepts a vault reading of its asset in checksummed case", async () => {
+    await coordinate(afterCutoff);
+    vault(
+      "1000",
+      afterCutoff.toISOString(),
+      6,
+      deployment.asset.toUpperCase().replace("0X", "0x"),
+    );
+    expect((await coordinate(afterCutoff)).created).toEqual([
+      `${project.id}/2026-11`,
+    ]);
   });
 
   test("a Solana month needs its full total free, even for an award reserved earlier", async () => {

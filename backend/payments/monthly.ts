@@ -46,6 +46,7 @@ import type {
 } from "../../src/lib/project-contracts";
 import { assertProjectDefinition } from "../../src/lib/project-schema.mjs";
 import type { ProjectDefinition } from "../../src/lib/projects.mjs";
+import { sameWalletAddress } from "../../src/lib/wallets";
 import type { MonthlyReleaseResult } from "../../workers/payment-executor/monthly-release";
 import {
   type D1TransactionalDatabase as D1Database,
@@ -528,7 +529,11 @@ async function createMonthlyObligations(
       }>();
     if (
       !vault ||
-      vault.asset_address.toLowerCase() !== run.snapshot.asset.toLowerCase() ||
+      !sameWalletAddress(
+        solana ? "solana" : "evm",
+        vault.asset_address,
+        run.snapshot.asset,
+      ) ||
       now.getTime() - Date.parse(vault.observed_at) > VAULT_SNAPSHOT_STALE_MS
     )
       return "stale-funding";
